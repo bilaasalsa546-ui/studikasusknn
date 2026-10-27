@@ -1,6 +1,9 @@
 import math
+import pandas as pd
+import streamlit as st
 
-# DATASET: (pasien, usia, bmi, glukosa, tekanan darah, riwayat keluarga, kelas)
+st.title("Prediksi Risiko Diabetes (KNN)")
+
 data = [
     ("P01", 25, 21.5,  90, 110, 0, "Rendah"),
     ("P02", 30, 23.1,  95, 115, 0, "Rendah"),
@@ -14,35 +17,28 @@ data = [
     ("P10", 48, 29.5, 145, 130, 1, "Tinggi"),
 ]
 
-# Data pasien baru: (usia, bmi, glukosa, tekanan darah, riwayat keluarga)
-pasien_baru = (42, 28.5, 130, 128, 1)
-K = 3
+st.subheader("Data Pasien")
+st.dataframe(pd.DataFrame(data, columns=["Pasien", "Usia", "BMI", "Glukosa", "Tekanan Darah", "Riwayat Keluarga", "Kelas"]))
 
-# Rumus jarak Euclidean
-def euclidean(a, b):
-    return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+st.subheader("Input Pasien Baru")
+usia = st.number_input("Usia", 1, 100, 42)
+bmi = st.number_input("BMI", 10.0, 60.0, 28.5)
+glukosa = st.number_input("Glukosa", 50, 300, 130)
+tekanan = st.number_input("Tekanan Darah", 50, 250, 128)
+riwayat = st.selectbox("Riwayat Keluarga", [1, 0], format_func=lambda x: "Ada" if x == 1 else "Tidak ada")
+k = st.slider("Nilai K", 1, 9, 3, step=2)
 
-# Hitung jarak pasien baru ke setiap pasien
-jarak = []
-for p in data:
-    nama, fitur, kelas = p[0], p[1:6], p[6]
-    jarak.append((euclidean(fitur, pasien_baru), nama, kelas))
+if st.button("Prediksi"):
+    baru = (usia, bmi, glukosa, tekanan, riwayat)
+    jarak = []
+    for p in data:
+        d = math.sqrt(sum((a - b) ** 2 for a, b in zip(p[1:6], baru)))
+        jarak.append((d, p[0], p[6]))
+    jarak.sort()
 
-# Urutkan dari jarak terkecil
-jarak.sort()
+    hasil = pd.DataFrame(jarak, columns=["Jarak", "Pasien", "Kelas"])
+    st.dataframe(hasil.round(4))
 
-print("Peringkat  Pasien  Kelas    Jarak")
-for i, (d, nama, kelas) in enumerate(jarak, start=1):
-    print(f"{i:<10} {nama:<7} {kelas:<8} {d:.4f}")
-
-# Ambil K tetangga terdekat lalu voting
-tetangga = jarak[:K]
-voting = {"Rendah": 0, "Tinggi": 0}
-for d, nama, kelas in tetangga:
-    voting[kelas] += 1
-
-hasil = "Tinggi" if voting["Tinggi"] > voting["Rendah"] else "Rendah"
-
-print(f"\n{K} tetangga terdekat:", ", ".join(n for d, n, k in tetangga))
-print("Voting:", voting)
-print("Hasil prediksi: Risiko", hasil)
+    tetangga = [j[2] for j in jarak[:k]]
+    prediksi = max(set(tetangga), key=tetangga.count)
+    st.success(f"Hasil prediksi: Risiko {prediksi}")
